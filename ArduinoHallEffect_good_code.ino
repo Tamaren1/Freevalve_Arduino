@@ -1,69 +1,58 @@
-//This code is full of test strings and is generally a conglomerate of code from stackexchange and
-//bad form. If it looks stupid, I probably wrote it.
-//Wesley Kagan, 2020
+// This code is full of test strings and is generally a conglomerate of code from StackExchange and
+// bad form. If it looks stupid, I probably wrote it.
+// Wesley Kagan, 2020
+// Ric Allinson, 2020
 
-const int hall = 2;
-int hallcounter = 0;
-int hallstate = 0;
-int lasthallstate = 0;
-unsigned long triggerTime;
-unsigned long last_triggerTime;
-unsigned long timeGap;
-unsigned long last_timeGap;
-unsigned int degree;
-unsigned int state;
-int newstate;
+// Control variables.
+const int MAGNET_PER_DEG = 6
+const int FREEVALVE_ANGLE = 180;
+
+// Pins assignment.
+const int HALL_MAGNET = 2;
+const int EXHAUST_V = 12;
+const int INTAKE_V = 13;
+
+int cad;                   // Crank Angle Degrees (CAD).
+bool cycle;                // "true" for Intake, "false" for Exhaust.
+unsigned long timeGap;     // Function level time between interrupts.
+unsigned long lastTimeGap; // Global level time between interrupts.
 
 void setup() {
-  pinMode(hall, INPUT);
   Serial.begin(115200);
-  pinMode(13, OUTPUT);    // sets the digital pin 13 as output
-  pinMode(12, OUTPUT);    // sets the digital pin 12 as output
-  attachInterrupt(0, magnet_detect, RISING);//Initialize the intterrupt pin digital pin 2
-  degree = 0;
+  pinMode(HALL_MAGNET, INPUT);
+  attachInterrupt(0, magnetDetect, RISING);
+  pinMode(INTAKE_V, OUTPUT);
+  pinMode(EXHAUST_V, OUTPUT);
 }
 
 void loop() {
-  //The compiler says this is needed otherwise the govt. takes my cat
+  if(printLog){
+    Serial.print(cad);
+    printLog = false;
+  }
 }
 
-void magnet_detect() {
-  hallcounter ++;
-  triggerTime = millis();
-  timeGap = triggerTime - last_triggerTime;
-  last_triggerTime = triggerTime;
-     
-  if (timeGap >= last_timeGap + last_timeGap / 2) {
-    //Serial.println(state);
-    Serial.println("missing tooth");
-    hallcounter = 1; 
-    state++; //This right here is garbage and you know it.
-  }
-    
-  last_timeGap = timeGap;
-  //Serial.println(hallcounter);
-    
-  degree = hallcounter * 6;
+void magnetDetect() {
+  hallCounter++;
+  timeGap = millis() - lastTimeGap;
 
-  if ((state % 2) == 0) { //Bool wasn't working so this dumpster fire got started.
-    Serial.print("STATE 1 ");
-    Serial.println(degree);
-    if (6 <= degree && degree <= 180) { //EDIT HERE INTAKE
-      digitalWrite(13, HIGH); // sets the digital pin 13 on
-    } else {
-      digitalWrite(13, LOW);  // sets the digital pin 13 off
-    }
+  // Find missing tooth for dead top.
+  if (timeGap >= lastTimeGap * 3 / 2) {
+    hallCounter = 1;
+    cycle = !cycle;
   }
 
-  if ((state % 2) == 1) {
-    Serial.print("STATE 2 ");
-    Serial.println(degree);
-    if (180 <= degree && degree <= 354) { //EDIT HERE EXHAUST
-      digitalWrite(12, HIGH); // sets the digital pin 13 on
-    } else {
-      digitalWrite(12, LOW);  // sets the digital pin 13 off
-    }
-  }
+  // Store the last time difference so we can use it in the next cycle.
+  lastTimeGap = timeGap;
 
-  lasthallstate = hallstate;
+  
+  cad = hallCounter * MAGNET_PER_DEG;
+
+  // Every rotation of the crank alternates between Intake and Exhaust.
+  if (cycle) {
+    digitalWrite(INTAKE_V,  cad <= FREEVALVE_ANGLE); 
+  } else {
+    digitalWrite(EXHAUST_V, FREEVALVE_ANGLE <= cad);
+  }
+  printLog = true;
 }
