@@ -1,11 +1,12 @@
-// This code is full of test strings and is generally a conglomerate of code from StackExchange and
-// bad form. If it looks stupid, I probably wrote it.
+// An Arduino program for controlling value timing on a 6.5ph Predator engine from Harbor Freight.
+//
 // Wesley Kagan, 2020
 // Ric Allinson, 2020
 
 // Control variables.
-const int MAGNET_PER_DEG = 6;
-const int FREEVALVE_ANGLE = 180;
+const int DEG_PER_MAGNET = 6;       // Number of degrees for each magnet.
+const int FREEVALVE_OFFSET_TOP = 0; // The amount of off set from TDC (needs to be multiples of DEG_PER_MAGNET).
+const int FREEVALVE_OFFSET_BOTTOM = 180 + FREEVALVE_OFFSET_TOP; 
 
 // Pins assignment.
 const int HALL_MAGNET = 2;
@@ -36,6 +37,7 @@ void loop() {
   }
 }
 
+// This function will be called about every 15.79ms at the maximum RPM of 3800.
 void magnetDetect() {
   // Increment the counter to keep track of the position.
   hallCounter++;
@@ -54,15 +56,15 @@ void magnetDetect() {
   lastTimeGap = timeGap;
 
   // Store the current crank angle for logging.
-  cad = hallCounter * MAGNET_PER_DEG;
+  cad = hallCounter * DEG_PER_MAGNET;
 
   // Every rotation of the crank alternates between Intake and Exhaust.
   if (cycle) {
     // If the crank angle degree is in the intake range open it, otherwise close it.
-    digitalWrite(INTAKE_V,  cad <= FREEVALVE_ANGLE); 
+    digitalWrite(INTAKE_V, cad > FREEVALVE_OFFSET_TOP && cad <= FREEVALVE_OFFSET_BOTTOM);
   } else {
     // If the crank angle degree is in the exhaust range open it, otherwise close it.
-    digitalWrite(EXHAUST_V, FREEVALVE_ANGLE <= cad);
+    digitalWrite(EXHAUST_V, cad >= FREEVALVE_OFFSET_BOTTOM || cad < FREEVALVE_OFFSET_TOP);
   }
   printLog = true;
 }
