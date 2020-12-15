@@ -16,7 +16,7 @@ const int INTAKE_V = 13;
 int cad;                   // Crank Angle Degrees (CAD).
 int hallCounter;           // The number of magnets after the last TDC.
 bool cycle;                // "true" for Intake, "false" for Exhaust.
-bool printLog;             // Used to trigger a print in the loop.
+bool printLog;             // Used to stop duplicate values from printing in the loop.
 unsigned long timeGap;     // Function level time between interrupts.
 unsigned long lastTimeGap; // Global level time between interrupts.
 
