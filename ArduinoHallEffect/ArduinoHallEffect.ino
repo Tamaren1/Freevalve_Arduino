@@ -1,4 +1,4 @@
-// An Arduino program for controlling value timing on a 6.5ph Predator engine from Harbor Freight.
+// An Arduino program for controlling valve timing on a 6.5ph Predator engine from Harbor Freight.
 //
 // Wesley Kagan, 2020
 // Ric Allinson, 2020
