@@ -15,7 +15,7 @@ const int DEG_PER_MAGNET = 6; // Number of degrees for per magnet.
 bool intakeMap[120] = {};  // Intake open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
 bool exhaustMap[120] = {}; // Exhaust open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
 int hallCounter;           // The number of magnets after the last TDC.
-bool cycle;                // "true" for Intake, "false" for Exhaust.
+bool secondRotation;       // "true" if the cam is on its second rotation.
 bool printLog;             // Used to stop duplicate values from printing in the loop.
 unsigned long timeGap;     // Function level time between interrupts.
 unsigned long lastTimeGap; // Global level time between interrupts.
@@ -32,10 +32,11 @@ void setup() {
 }
 
 void loop() {
+  // This may not print all values. Only the most recent from the last interrupt.
   if(printLog){
     Serial.print(lastTimeGap);
     Serial.print(hallCounter);
-    Serial.print(cycle);
+    Serial.print(secondRotation);
     printLog = false;
   }
 }
@@ -49,12 +50,12 @@ void magnetDetect() {
 
   // Find the missing tooth for Top Dead Center (TDC).
   if (timeGap >= lastTimeGap * 3 / 2) {
-    // On the second rotation reset the hall counter.
-    if (cycle) {
+    // On the second rotation `or` if its value is greater than the mapping indexes reset the hallCounter.
+    if (secondRotation || hallCounter >= 120) {
       hallCounter = 0;
     }
-    // Flip the cycle phase.
-    cycle = !cycle;
+    // Flip the secondRotation.
+    secondRotation = !secondRotation;
   }
 
   // Store the last time difference so we can use it in the next interrupt.
@@ -64,5 +65,6 @@ void magnetDetect() {
   digitalWrite(INTAKE_V, intakeMap[hallCounter]);
   digitalWrite(EXHAUST_V, exhaustMap[hallCounter]);
 
+  // Tells the loop() that values have changed.
   printLog = true;
 }
