@@ -53,6 +53,8 @@ void magnetDetect() {
     // On the second rotation `or` if its value is greater than the mapping indexes reset the hallCounter.
     if (secondRotation || hallCounter >= 120) {
       hallCounter = 0;
+    } else {
+      hallCounter = 59; // Forcing the counter in case of drift over a rotation.
     }
     // Flip the secondRotation.
     secondRotation = !secondRotation;
