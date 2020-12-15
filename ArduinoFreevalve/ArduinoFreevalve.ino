@@ -8,11 +8,12 @@ const int HALL_MAGNET = 2;
 const int EXHAUST_V = 12;
 const int INTAKE_V = 13;
 
-// Control variables.
-const int DEG_PER_MAGNET = 6;    // Number of degrees for each magnet.
-const bool INTAKE_MAP[120] = {};  // Intake open/close mapping from -360 to 360.
-const bool EXHAUST_MAP[120] = {}; // Exhaust open/close mapping from -360 to 360.
+// Control constants.
+const int DEG_PER_MAGNET = 6; // Number of degrees for per magnet.
 
+// Runtime variables.
+bool intakeMap[120] = {};  // Intake open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
+bool exhaustMap[120] = {}; // Exhaust open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
 int hallCounter;           // The number of magnets after the last TDC.
 bool cycle;                // "true" for Intake, "false" for Exhaust.
 bool printLog;             // Used to stop duplicate values from printing in the loop.
@@ -25,6 +26,9 @@ void setup() {
   attachInterrupt(0, magnetDetect, RISING);
   pinMode(INTAKE_V, OUTPUT);
   pinMode(EXHAUST_V, OUTPUT);
+  // Load mappings here.
+  // intakeMap = ?
+  // exhaustMap = ?
 }
 
 void loop() {
@@ -57,8 +61,8 @@ void magnetDetect() {
   lastTimeGap = timeGap;
 
   // Use the intake/exhaust maps to open or close the valves.
-  digitalWrite(INTAKE_V, INTAKE_MAP[hallCounter]);
-  digitalWrite(EXHAUST_V, EXHAUST_MAP[hallCounter]);
+  digitalWrite(INTAKE_V, intakeMap[hallCounter]);
+  digitalWrite(EXHAUST_V, exhaustMap[hallCounter]);
 
   printLog = true;
 }
