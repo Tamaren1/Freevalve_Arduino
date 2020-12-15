@@ -11,14 +11,16 @@ const int INTAKE_V = 13;
 // Control constants.
 const int DEG_PER_MAGNET = 6; // Number of degrees for per magnet.
 
-// Runtime variables.
+// Runtime mapping variables.
 bool intakeMap[120] = {};  // Intake open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
 bool exhaustMap[120] = {}; // Exhaust open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
-int hallCounter;           // The number of magnets after the last TDC.
-bool secondRotation;       // "true" if the cam is on its second rotation.
-bool printLog;             // Used to stop duplicate values from printing in the loop.
-unsigned long timeGap;     // Function level time between interrupts.
-unsigned long lastTimeGap; // Global level time between interrupts.
+
+// ISR variables.
+volatile int hallCounter;           // The number of magnets after the last TDC.
+volatile bool secondRotation;       // "true" if the cam is on its second rotation.
+volatile bool printLog;             // Used to stop duplicate values from printing in the loop.
+volatile unsigned long timeGap;     // Function level time between interrupts.
+volatile unsigned long lastTimeGap; // Global level time between interrupts.
 
 void setup() {
   Serial.begin(115200);
