@@ -1,4 +1,6 @@
-// An Arduino program for controlling valve timing on a 6.5ph Predator engine from Harbor Freight.
+// An Arduino program for controlling valve timing on a 6.5HP Predator engine from Harbor Freight.
+//
+// License goes here?
 //
 // Wesley Kagan, 2020
 // Ric Allinson, 2020
@@ -10,10 +12,12 @@ const int INTAKE_V = 13;
 
 // Control constants.
 const int DEG_PER_MAGNET = 6; // Number of degrees for per magnet.
+const int ROTATION_TWO = 760/DEG_PER_MAGNET;     // Number of interrupts in the full cycle.
+const int ROTATION_ONE = (760/DEG_PER_MAGNET)-1; // Number of interrupts in a half cycle.
 
 // Runtime mapping variables.
-bool intakeMap[120] = {};  // Intake open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
-bool exhaustMap[120] = {}; // Exhaust open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
+bool intakeMap[ROTATION_TWO] = {};  // Intake open/close mapping is equal the total number of interrupts for two rotations.
+bool exhaustMap[ROTATION_TWO] = {}; // Exhaust open/close mapping is equal the total number of interrupts for two rotations.
 
 // ISR variables.
 volatile int hallCounter = 0;           // The number of magnets after the last TDC.
@@ -52,11 +56,11 @@ void magnetDetect() {
 
   // Find the missing tooth for Top Dead Center (TDC).
   if (timeGap >= lastTimeGap * 3 / 2) {
-    // On the second rotation `or` if its value is greater than the mapping indexes reset the hallCounter.
-    if (secondRotation || hallCounter >= 120) {
+    // On the second rotation reset the hallCounter.
+    if (secondRotation) {
       hallCounter = 0;
     } else {
-      hallCounter = 59; // Forcing the counter in case of drift over a rotation.
+      hallCounter = ROTATION_ONE; // Forcing the counter in case of drift over a rotation.
     }
     // Flip the secondRotation.
     secondRotation = !secondRotation;
@@ -64,6 +68,12 @@ void magnetDetect() {
 
   // Store the last time difference so we can use it in the next interrupt.
   lastTimeGap = timeGap;
+
+  // If the hallCounter is greater than the mapping index reset it.
+  // This would only happen when the missing tooth was NOT detected.
+  if (hallCounter >= ROTATION_TWO) {
+    hallCounter = 0;
+  }
 
   // Use the intake/exhaust maps to open or close the valves.
   digitalWrite(INTAKE_V, intakeMap[hallCounter]);
