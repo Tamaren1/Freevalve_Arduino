@@ -16,11 +16,11 @@ bool intakeMap[120] = {};  // Intake open/close mapping from -360 to 360 divided
 bool exhaustMap[120] = {}; // Exhaust open/close mapping from -360 to 360 divided by DEG_PER_MAGNET.
 
 // ISR variables.
-volatile int hallCounter;           // The number of magnets after the last TDC.
-volatile bool secondRotation;       // "true" if the cam is on its second rotation.
-volatile bool printLog;             // Used to stop duplicate values from printing in the loop.
-volatile unsigned long timeGap;     // Function level time between interrupts.
-volatile unsigned long lastTimeGap; // Global level time between interrupts.
+volatile int hallCounter = 0;           // The number of magnets after the last TDC.
+volatile bool secondRotation = false;   // "true" if the cam is on its second rotation.
+volatile bool printLog = false;         // Used to stop duplicate values from printing in the loop.
+volatile unsigned long timeGap = 0;     // Function level time between interrupts.
+volatile unsigned long lastTimeGap = 0; // Global level time between interrupts.
 
 void setup() {
   Serial.begin(115200);
