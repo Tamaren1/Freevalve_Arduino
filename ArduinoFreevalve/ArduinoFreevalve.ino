@@ -73,7 +73,7 @@ void magnetDetect() {
   timeGap = micros() - lastTimeGap;
 
   // Detect the missing step.
-  if (timeGap >= lastTimeGap + lastTimeGap / 2) {
+  if (timeGap * 10 >= lastTimeGap * 15) {
     // On the second cycle reset the hallCounter.
     if (secondCycle) {
       hallCounter = 0;
