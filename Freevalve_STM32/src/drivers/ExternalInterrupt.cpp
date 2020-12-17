@@ -29,7 +29,7 @@ ExternalInterrupt::~ExternalInterrupt() {
 
 int ExternalInterrupt::attachInterrupt(uint8_t line, uint8_t prio, callback cb, void * param) {
     /* Make sure the priority is valid */
-    if (IS_NVIC_PREEMPTION_PRIORITY(prio)) {
+    if (!IS_NVIC_PREEMPTION_PRIORITY(prio)) {
         return ReturnType::ERROR;
     }
 

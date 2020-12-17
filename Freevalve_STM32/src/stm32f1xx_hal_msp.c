@@ -99,12 +99,6 @@ void HAL_MspInit(void) {
     HAL_GPIO_Init(GPIOC, &init);
     HAL_GPIO_Init(GPIOD, &init);
     HAL_GPIO_Init(GPIOE, &init);
-
-    init.Mode = GPIO_MODE_OUTPUT_PP;
-    init.Pin = GPIO_PIN_11 | GPIO_PIN_8;
-    init.Pull = GPIO_PULLDOWN;
-
-    HAL_GPIO_Init(GPIOA, &init);
 }
 
 /**
