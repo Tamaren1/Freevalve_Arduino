@@ -1,10 +1,9 @@
 // An Arduino program for controlling valve timing on a 6.5HP Predator engine from Harbor Freight.
 //
-// License goes here?
+// License goes here.
 //
 // Wesley Kagan, 2020
 // Ric Allinson, 2020
-// whitfijs-jw, 2020
 
 // Pins assignment.
 static const int HALL_MAGNET = 2;
@@ -74,13 +73,12 @@ void magnetDetect() {
 
   // Detect the missing step.
   if (timeGap * 10 >= lastTimeGap * 15) {
-    // On the second cycle reset the hallCounter.
     if (secondCycle) {
-      hallCounter = 0;
+      hallCounter = 0;                  // On the second cycle reset the hallCounter.
     } else {
-      hallCounter = STEPS_PER_ROTATION; // Forcing the counter in case of drift over a cycle.
+      hallCounter = STEPS_PER_ROTATION; // Forcing the counter in case of drift over a rotation.
     }
-    // Flip the secondCycle.
+    // Flip the secondCycle flag.
     secondCycle = !secondCycle;
   }
 
