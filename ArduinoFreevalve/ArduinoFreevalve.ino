@@ -4,24 +4,29 @@
 //
 // Wesley Kagan, 2020
 // Ric Allinson, 2020
+// whitfijs-jw, 2020
 
 // Pins assignment.
-const int HALL_MAGNET = 2;
-const int EXHAUST_V = 12;
-const int INTAKE_V = 13;
+static const int HALL_MAGNET = 2;
+static const int EXHAUST_V = 12;
+static const int INTAKE_V = 13;
+
+// Implementation constants (to be changed by implementer).
+static const int NUM_STEPS = 60;
+static const int NUM_MISSING_STEPS = 1;
 
 // Control constants.
-const int DEG_PER_MAGNET = 6; // Number of degrees for per magnet.
-const int ROTATION_TWO = (720/DEG_PER_MAGNET)-1;   // Number of interrupts in the full cycle.
-const int ROTATION_ONE = (720/DEG_PER_MAGNET)-2; // Number of interrupts in a half cycle.
+static const int NUM_TRIGGER_STEPS = NUM_STEPS - NUM_MISSING_STEPS; // Number of interrupt steps counted.
+static const int STEPS_PER_ROTATION = NUM_TRIGGER_STEPS;            // Number of interrupts in a half cycle.
+static const int STEPS_PER_CYCLE = NUM_TRIGGER_STEPS * 2;           // Number of interrupts in the full cycle.
 
 // Runtime mapping variables.
-bool intakeMap[ROTATION_TWO] = {};  // Intake open/close mapping is equal the total number of interrupts for two rotations.
-bool exhaustMap[ROTATION_TWO] = {}; // Exhaust open/close mapping is equal the total number of interrupts for two rotations.
+bool intakeMap[STEPS_PER_CYCLE] = {};  // Intake open/close mapping is equal the total number of interrupts for two rotations.
+bool exhaustMap[STEPS_PER_CYCLE] = {}; // Exhaust open/close mapping is equal the total number of interrupts for two rotations.
 
 // ISR variables.
 volatile int hallCounter = 0;           // The number of magnets after the last TDC.
-volatile bool secondRotation = false;   // "true" if the cam is on its second rotation.
+volatile bool secondCycle = false;   // "true" if the cam is on its second rotation.
 volatile bool printLog = false;         // Used to stop duplicate values from printing in the loop.
 volatile unsigned long timeGap = 0;     // Function level time between interrupts.
 volatile unsigned long lastTimeGap = 0; // Global level time between interrupts.
@@ -32,7 +37,9 @@ void setup() {
   attachInterrupt(0, magnetDetect, RISING);
   pinMode(INTAKE_V, OUTPUT);
   pinMode(EXHAUST_V, OUTPUT);
-  // Load mappings here.
+  /* 
+    Load mappings here.
+  */
   // intakeMap = ?
   // exhaustMap = ?
 }
@@ -42,7 +49,7 @@ void loop() {
   if(printLog){
     Serial.print(lastTimeGap);
     Serial.print(hallCounter);
-    Serial.println(secondRotation);
+    Serial.println(secondCycle);
     printLog = false;
   }
 }
@@ -55,6 +62,9 @@ void magnetDetect() {
   hallCounter++;
 
   // Get the time gap between this interrupt and the last.
+  // 
+  // The following will be a problem...
+  //
   // Returns the number of microseconds since the Arduino board began running the current program.
   // This number will overflow (go back to zero), after approximately 70 minutes.
   // On 16 MHz Arduino boards (e.g. Duemilanove and Nano),
@@ -62,16 +72,16 @@ void magnetDetect() {
   // On 8 MHz Arduino boards (e.g. the LilyPad), this function has a resolution of eight microseconds.
   timeGap = micros() - lastTimeGap;
 
-  // Find the missing tooth for Top Dead Center (TDC).
+  // Detect the missing step.
   if (timeGap >= lastTimeGap * 3 / 2) {
-    // On the second rotation reset the hallCounter.
-    if (secondRotation) {
+    // On the second cycle reset the hallCounter.
+    if (secondCycle) {
       hallCounter = 0;
     } else {
-      hallCounter = ROTATION_ONE; // Forcing the counter in case of drift over a rotation.
+      hallCounter = STEPS_PER_ROTATION; // Forcing the counter in case of drift over a cycle.
     }
-    // Flip the secondRotation.
-    secondRotation = !secondRotation;
+    // Flip the secondCycle.
+    secondCycle = !secondCycle;
   }
 
   // Store the last time difference so we can use it in the next interrupt.
@@ -79,7 +89,7 @@ void magnetDetect() {
 
   // If the hallCounter is greater than the mapping index reset it.
   // This would only happen when the missing tooth was NOT detected.
-  if (hallCounter >= ROTATION_TWO) {
+  if (hallCounter >= STEPS_PER_CYCLE) {
     hallCounter = 0;
   }
 
