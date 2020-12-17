@@ -42,6 +42,9 @@ int FreeValveControl::loop() {
         /* wait for the sync from the trigger wheel interrupt*/
         vTaskDelay(pdMS_TO_TICKS(500));
     }
+
+    /* we shouldn't get here */
+    return ReturnType::ERROR;
 }
 
 int FreeValveControl::initGpio() {
@@ -68,7 +71,7 @@ int FreeValveControl::initGpio() {
 
 int FreeValveControl::calcValveMaps(uint8_t * intake, uint8_t * exhaust, uint16_t len) {
     /* sanity check */
-    if (intake == nullptr | exhaust == nullptr | len == 0) {
+    if ((intake == nullptr) | (exhaust == nullptr) | (len == 0)) {
         return ReturnType::ERROR;
     }
 
@@ -119,12 +122,12 @@ void FreeValveControl::onHallDetected(void * param) {
         trigger.cycle = !trigger.cycle;
     }
 
-    if (trigger.cycle) { // Intake Stroke
+    if (trigger.cycle) { // Intake Cycle
         /* we're focused on the intake valve */
         HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, (GPIO_PinState) task->mIntakeMap[trigger.triggerCount]);
         /* keep the exhaust closed */
         HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, GPIO_PinState::GPIO_PIN_RESET);
-    } else { // Exhaust Stroke
+    } else { // Exhaust Cycle
         /* we're focused on the exhaust */
         HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, (GPIO_PinState) task->mExhaustMap[trigger.triggerCount]);
         /* keep the intake closed */

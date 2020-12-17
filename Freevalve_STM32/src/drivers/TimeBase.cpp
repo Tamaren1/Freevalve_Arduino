@@ -32,7 +32,7 @@ int TimeBase::init() {
     __HAL_RCC_TIM3_CLK_ENABLE();
 
 
-    /* Set TIMx instance */
+    /* Set TIMx instance 1MHz */
     mTimHandle.Instance = TIM3;
     mTimHandle.Init.Period            = 10-1;
     mTimHandle.Init.Prescaler         = 72-1;

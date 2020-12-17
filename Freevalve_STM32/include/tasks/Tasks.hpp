@@ -9,11 +9,11 @@
 #define TASKS_TASKS_HPP_
 
 namespace Tasks {
-    enum {
+    enum TaskId{
         FVC_ID, //!< Freevalve control task ID
 
         NUM_IDS,
-    } TaskId;
+    } ;
 
     int initTasks();
 };
