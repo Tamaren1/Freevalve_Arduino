@@ -52,8 +52,8 @@ public:
 
 protected:
     volatile TriggerParams_t mTriggerParams;
-    uint8_t mIntakeMap[TRIGGERS_PER_ROTATION];
-    uint8_t mExhaustMap[TRIGGERS_PER_ROTATION];
+    uint8_t mIntakeMap[TRIGGERS_PER_CYCLE];
+    uint8_t mExhaustMap[TRIGGERS_PER_CYCLE];
 
 private:
     int initGpio();

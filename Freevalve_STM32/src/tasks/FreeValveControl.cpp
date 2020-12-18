@@ -22,7 +22,7 @@ FreeValveControl::~FreeValveControl() {
 int FreeValveControl::setup() {
     TimeBase::init();
 
-    if (calcValveMaps(mIntakeMap, mExhaustMap, TRIGGERS_PER_ROTATION) != ReturnType::OK) {
+    if (calcValveMaps(mIntakeMap, mExhaustMap, TRIGGERS_PER_CYCLE) != ReturnType::OK) {
         return ReturnType::ERROR;
     }
 
@@ -80,16 +80,15 @@ int FreeValveControl::calcValveMaps(uint8_t * intake, uint8_t * exhaust, uint16_
     memset(exhaust, 0x00, len);
 
     for (int i = 0; i < len; i++) {
-        int iDeg = i * DEG_PER_MAGNET;
-        int eDeg = iDeg + 360;
+        int deg = i * DEG_PER_MAGNET;
 
         /* intake */
-        if (iDeg >= INTAKE_OPEN_DEG && iDeg < INTAKE_CLOSED_DEG) {
+        if (deg >= INTAKE_OPEN_DEG && deg < INTAKE_CLOSED_DEG) {
             intake[i] = 1;
         }
 
         /* exhaust */
-        if (eDeg >= EXHAUST_OPEN_DEG && eDeg < EXHAUST_CLOSED_DEG) {
+        if (deg >= EXHAUST_OPEN_DEG && deg < EXHAUST_CLOSED_DEG) {
             exhaust[i] = 1;
         }
     }
@@ -112,31 +111,22 @@ void FreeValveControl::onHallDetected(void * param) {
     trigger.timeGap = triggerTime - trigger.lastTriggerTime;
 
     if (trigger.timeGap > (trigger.lastTimeGap + (trigger.lastTimeGap >> 1))) {
-        /* check what cycle we're on */
-        if (trigger.cycle) {
+        /* missing tooth -- check what cycle we're on */
+        if (trigger.cycle) { // exhaust cycle -- reset the count
             trigger.triggerCount = 0;
-        } else {
+        } else { // intake cycle - compensate for the tooth/teeth we've missed
             trigger.triggerCount = TRIGGERS_PER_ROTATION;
         }
 
         trigger.cycle = !trigger.cycle;
     }
 
-    if (trigger.cycle) { // Intake Cycle
-        /* we're focused on the intake valve */
-        HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, (GPIO_PinState) task->mIntakeMap[trigger.triggerCount]);
-        /* keep the exhaust closed */
-        HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, GPIO_PinState::GPIO_PIN_RESET);
-    } else { // Exhaust Cycle
-        /* we're focused on the exhaust */
-        HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, (GPIO_PinState) task->mExhaustMap[trigger.triggerCount]);
-        /* keep the intake closed */
-        HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, GPIO_PinState::GPIO_PIN_RESET);
-    }
+    HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, (GPIO_PinState) task->mIntakeMap[trigger.triggerCount]);
+    HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, (GPIO_PinState) task->mExhaustMap[trigger.triggerCount]);
 
 
-    /* Check the trigger count */
-    if (trigger.triggerCount >= TRIGGERS_PER_ROTATION - 1) {
+    /* Check the trigger count -- if we're over we've missed the missing tooth -- sync loss error will need to be triggered here */
+    if (trigger.triggerCount >= TRIGGERS_PER_CYCLE - 1) {
         trigger.triggerCount = 0;
         //trigger.cycle = !trigger.cycle; //used for debugging with a constant square wave signal
     }
