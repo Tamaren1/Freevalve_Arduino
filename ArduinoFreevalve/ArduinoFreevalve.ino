@@ -15,17 +15,17 @@ static const int INTAKE_V = 13;
 static const int NUM_STEPS = 60;
 
 // Control constants.
-static const int STEPS_PER_ROTATION = NUM_STEPS;            // Number of interrupts in a half cycle.
-static const int STEPS_PER_CYCLE = NUM_STEPS * 2;           // Number of interrupts in the full cycle.
+static const int STEPS_PER_ROTATION = NUM_STEPS - 1; // Number of interrupts in a half cycle for a zero based array.
+static const int STEPS_PER_CYCLE = NUM_STEPS * 2;    // Number of interrupts in the full cycle.
 
 // Runtime mapping variables.
 bool intakeMap[STEPS_PER_CYCLE] = {};  // Intake open/close mapping is equal the total number of interrupts for two rotations.
 bool exhaustMap[STEPS_PER_CYCLE] = {}; // Exhaust open/close mapping is equal the total number of interrupts for two rotations.
 
 // ISR variables.
-volatile int hallCounter = 0;           // The number of magnets after the last TDC.
-volatile bool secondCycle = false;   // "true" if the cam is on its second rotation.
-volatile bool printLog = false;         // Used to stop duplicate values from printing in the loop.
+volatile int hallCounter = 0;      // The number of magnets after the last TDC.
+volatile bool secondCycle = false; // "true" if the cam is on its second rotation.
+volatile bool printLog = false;    // Used to stop duplicate values from printing in the loop.
 
 void setup() {
   Serial.begin(115200);
@@ -42,7 +42,7 @@ void setup() {
 }
 
 void loop() {
-  // This may not print all values. Only the most recent from the last interrupt.
+  // This may not print the correct values. Only the most recent from the last magnetDetect() interrupt.
   if(printLog){
     Serial.print(hallCounter);
     Serial.println(secondCycle);
@@ -69,7 +69,7 @@ void magnetDetect() {
   hallCounter++;
 
   // If the hallCounter is greater than the mapping index reset it.
-  // This would only happen when the missing tooth was NOT detected.
+  // This would only happen when the rotationDetect() interrupt was NOT triggered.
   if (hallCounter >= STEPS_PER_CYCLE) {
     hallCounter = 0;
   }
@@ -78,6 +78,6 @@ void magnetDetect() {
   digitalWrite(INTAKE_V, intakeMap[hallCounter]);
   digitalWrite(EXHAUST_V, exhaustMap[hallCounter]);
 
-  // Tells the loop() that values have changed.
+  // Tells the loop() that the ISR variables have changed.
   printLog = true;
 }
