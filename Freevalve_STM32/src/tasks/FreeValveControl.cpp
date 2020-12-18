@@ -22,6 +22,16 @@ FreeValveControl::~FreeValveControl() {
 int FreeValveControl::setup() {
     TimeBase::init();
 
+    /* initialize semaphores */
+    mCrankSyncSemaphore = xSemaphoreCreateBinary();
+    mSyncLossSemaphore = xSemaphoreCreateBinary();
+
+    /* initialize queue set and add semaphores */
+    mSyncQueueSet = xQueueCreateSet(2);
+    xQueueAddToSet(mCrankSyncSemaphore, mSyncQueueSet);
+    xQueueAddToSet(mSyncLossSemaphore, mSyncQueueSet);
+
+    /* calculare valve open/closed maps */
     if (calcValveMaps(mIntakeMap, mExhaustMap, TRIGGERS_PER_CYCLE) != ReturnType::OK) {
         return ReturnType::ERROR;
     }
@@ -36,11 +46,24 @@ int FreeValveControl::setup() {
 
 int FreeValveControl::loop() {
     /* any last setup here */
+    uint32_t syncLossCnt = 0; // temporary for debugging
+    uint32_t syncCnt = 0; // temporary for debugging
 
     /* task loop */
     for (;;) {
         /* wait for the sync from the trigger wheel interrupt*/
-        vTaskDelay(pdMS_TO_TICKS(500));
+        mActiveSempahore = xQueueSelectFromSet(mSyncQueueSet, pdMS_TO_TICKS(500));
+
+        /* see what we've got */
+        if (mActiveSempahore == mCrankSyncSemaphore) {
+            /* crank sync update */
+            xSemaphoreTake(mCrankSyncSemaphore, 0);
+            syncCnt++;
+        } else if (mActiveSempahore == mSyncLossSemaphore) {
+            /* crank sync loss */
+            xSemaphoreTake(mSyncLossSemaphore, 0);
+            syncLossCnt++;
+        }
     }
 
     /* we shouldn't get here */
@@ -100,41 +123,49 @@ void FreeValveControl::onHallDetected(void * param) {
     /* Get the task */
     FreeValveControl * task = (FreeValveControl *) param;
 
-    TriggerParams_t trigger;
-    memcpy(&trigger, (void *) &task->mTriggerParams, sizeof(TriggerParams_t));
+    /* xSemaphoreGiveFromISR() will set *pxHigherPriorityTaskWoken to pdTRUE if giving the semaphore caused
+     * a task to unblock, and the unblocked task has a priority higher than the currently running task.
+     * If xSemaphoreGiveFromISR() sets this value to pdTRUE then a context switch should be requested before 1
+     * the interrupt is exited. */
+    BaseType_t xHigherPriorityTaskWoken;
 
     /* Increment the counter */
-    trigger.triggerCount++;
+    task->mTriggerParams.triggerCount++;
 
     /* Calculate the time gap */
     uint32_t triggerTime = TimeBase::getMicroSeconds();
-    trigger.timeGap = triggerTime - trigger.lastTriggerTime;
+    task->mTriggerParams.timeGap = triggerTime - task->mTriggerParams.lastTriggerTime;
 
-    if (trigger.timeGap > (trigger.lastTimeGap + (trigger.lastTimeGap >> 1))) {
+    if (task->mTriggerParams.timeGap > (task->mTriggerParams.lastTimeGap + (task->mTriggerParams.lastTimeGap >> 1))) {
         /* missing tooth -- check what cycle we're on */
-        if (trigger.cycle) { // exhaust cycle -- reset the count
-            trigger.triggerCount = 0;
+        if (task->mTriggerParams.cycle) { // exhaust cycle -- reset the count
+            task->mTriggerParams.triggerCount = 0;
         } else { // intake cycle - compensate for the tooth/teeth we've missed
-            trigger.triggerCount = TRIGGERS_PER_ROTATION;
+            task->mTriggerParams.triggerCount = TRIGGERS_PER_ROTATION;
         }
 
-        trigger.cycle = !trigger.cycle;
+        task->mTriggerParams.cycle = !task->mTriggerParams.cycle;
+
+        /* crank sync semaphore */
+        xSemaphoreGiveFromISR(task->mCrankSyncSemaphore, &xHigherPriorityTaskWoken);
     }
 
-    HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, (GPIO_PinState) task->mIntakeMap[trigger.triggerCount]);
-    HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, (GPIO_PinState) task->mExhaustMap[trigger.triggerCount]);
+    HAL_GPIO_WritePin(GPIOB, INTAKE_GPIO_PIN, (GPIO_PinState) task->mIntakeMap[task->mTriggerParams.triggerCount]);
+    HAL_GPIO_WritePin(GPIOB, EXHAUST_GPIO_PIN, (GPIO_PinState) task->mExhaustMap[task->mTriggerParams.triggerCount]);
 
 
-    /* Check the trigger count -- if we're over we've missed the missing tooth -- sync loss error will need to be triggered here */
-    if (trigger.triggerCount >= TRIGGERS_PER_CYCLE - 1) {
-        trigger.triggerCount = 0;
-        //trigger.cycle = !trigger.cycle; //used for debugging with a constant square wave signal
+    /* Check the trigger count -- if we're over we've missed the missing tooth */
+    if (task->mTriggerParams.triggerCount >= TRIGGERS_PER_CYCLE - 1) {
+        task->mTriggerParams.triggerCount = 0;
+        //task->mTriggerParams.cycle = !task->mTriggerParams.cycle; //used for debugging with a constant square wave signal
+
+        xSemaphoreGiveFromISR(task->mSyncLossSemaphore, &xHigherPriorityTaskWoken);
     }
 
     /* store the time gap */
-    trigger.lastTimeGap = trigger.timeGap;
-    trigger.lastTriggerTime = triggerTime;
+    task->mTriggerParams.lastTimeGap = task->mTriggerParams.timeGap;
+    task->mTriggerParams.lastTriggerTime = triggerTime;
 
-    /* write back to the task trigger params */
-    memcpy((void *) &task->mTriggerParams, &trigger,  sizeof(TriggerParams_t));
+    /* FreeRTOS cleanup */
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }

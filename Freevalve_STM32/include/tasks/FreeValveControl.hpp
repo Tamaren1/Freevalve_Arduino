@@ -8,8 +8,11 @@
 #ifndef INCLUDE_TASKS_FREEVALVECONTROL_HPP_
 #define INCLUDE_TASKS_FREEVALVECONTROL_HPP_
 
+#include "FreeRTOS.h"
 #include <Task.hpp>
 #include "ExternalInterrupt.hpp"
+#include "semphr.h"
+#include "queue.h"
 
 
 class FreeValveControl: public Task {
@@ -54,6 +57,11 @@ protected:
     volatile TriggerParams_t mTriggerParams;
     uint8_t mIntakeMap[TRIGGERS_PER_CYCLE];
     uint8_t mExhaustMap[TRIGGERS_PER_CYCLE];
+
+    QueueSetHandle_t mSyncQueueSet;
+    QueueSetMemberHandle_t mActiveSempahore;
+    SemaphoreHandle_t mSyncLossSemaphore;
+    SemaphoreHandle_t mCrankSyncSemaphore;
 
 private:
     int initGpio();
