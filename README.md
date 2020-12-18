@@ -1,4 +1,15 @@
+# Arduino Freevalve
+
+Repository for the Arduino Freevalve Project at www.youtube.com/c/wesleykagan 
+
+## Overview
+
+This code is tested with the [Harbor Freight 6.5hp 212cc OHC Horizontal Shaft Gas Engine EPA&CARB](https://www.harborfreight.com/engines-generators/gasoline-engines/65-hp-212cc-ohv-horizontal-shaft-gas-engine-epacarb-69727.html)
+
+## Original README
+
 # Freevalve_Arduino
+
 Codebase for the Arduino Freevalve Project- found here: www.youtube.com/c/wesleykagan 
 
 Okay, so this is a super early stage of this project, but as of this post, it does work in the 
