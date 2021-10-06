@@ -12,10 +12,10 @@ const float degreeModifier = 360/teeth; //Used to calculate degree location of e
 const int cylinders = 8;
 const int cylindersPerRotation = cylinders/2; //basically, number of cylinders in stroke 1/2 this state.  typically half, even split between cylinders/states; distributor based engines firing is typically evenly spaced over 2 crankshaft rotations
 const int cylinderDegrees = 360/cylindersPerRotation; //Used for valve timing math on multiple cylinder engines.  
-const int intDesiredOpen = 6;
-const int intDesiredClose = 180;
-const int exhDesiredOpen = 180;
-const int exhDesiredClose = 354;
+const int IVO = 31;  //Intake Valve Opening BTDC
+const int IVC = 70; //Intake Valve Closing ABDC
+const int EVO = 82; //Exhaust Valve Opening BBDC
+const int EVC = 29; //Exhaust Valve Closing ATDC
 const int intFirstPin = 12;
 const int exhFirstPin = 20;
 //const int[] firingOrder = {1,8,7,2,6,5,4,3}  //This is not actually needed.  simply wire the valve pins by firing order as described below
@@ -55,7 +55,7 @@ void open_valve(int Pin) {
 }
 
 void close_valve(int Pin) {
-    digitalWrite(Pin, LOW);
+  digitalWrite(Pin, LOW);
 }
 
 void magnet_detect() {
@@ -72,71 +72,85 @@ void magnet_detect() {
     
       last_timeGap = timeGap;
     
+    //determine crankshaft position based on hall counter
      int degree = (int) (hallcounter * degreeModifier); //more accurate degree calculation
-     int crankSectiondegree = degree % cylinderDegrees; //equates to degress in the section of the crankshaft for comparisons on timing event math. 
-     int crankSection = degree/cylinderDegrees; // crank sectioned by number of cylinders.
-     int int1Pin = intFirstPin + crankSection; //output pin for phase1 intake valve - based on crank section and next cylinder in firing order
-     int int2Pin = intFirstPin + crankSection + cylindersPerRotation;  //output pin for phase2 intake valve
-     int exh1Pin = exhFirstPin + crankSection; //output pin for phase1 exhaust valve
-     int exh2Pin = exhFirstPin + crankSection + cylindersPerRotation; //output pin for phase2 exhaust valve
-     if ((phase % 2) == 0) { //crankshaft degrees in first phase.    
+
+  //check valve events for each pair of sync'd cylinders (or 
+  for (int i=0;i<cylindersPerRotation || i=0;i++) {
+    //Calculate Degrees for timing checks
+    int sectionDegree = degree - (i * cylinderDegrees); } //base degree for current section - current degree + firing cylinder number * degrees to zero each cylinder (2 cyl =360, 4=180, 6=120, 8=90)
+    if (sectionDegree < 0) { sectionDegree = 360 + sectionDegree; } //if calculated degree is - (before 0), reset degree to correct position in the circle
+    int ATDC = sectionDegree; //Calcaute current position relative to TDC.  ATDC counts up from TDC.  As such, this will equal our degree.
+    if (sectionDegree > 180) { ATDC = sectionDegree-360; } //Allow for Negative ATDC values (before TDC) - if degrees > 180, display as negative
+    int BTDC = -(ATDC); //Calculate current position relative to TDC.  BTDC counts down to TDC. BTDC is opposite of ATDC
+    int BBDC = 180-sectionDegree; //Calculate current position relative to BDC.  BBDC counts down to BDC. This value will naturally go negative after passing 180 degrees
+    int ABDC = -(BBDC); //Calculate current position relative to BDC.  ABDC counts up from BDC.  ABDC is opposite of BBDC
+    
+    //Output Pin Definitions
+    int int1Pin = intFirstPin + i; //output pin for phase1 intake valve - based on crank section and next cylinder in firing order
+    int int2Pin = intFirstPin + i + cylindersPerRotation;  //output pin for phase2 intake valve
+    int exh1Pin = exhFirstPin + i; //output pin for phase1 exhaust valve
+    int exh2Pin = exhFirstPin + i + cylindersPerRotation; //output pin for phase2 exhaust valve
+  
+     if ((phase % 2) == 0) { //crankshaft in phase 1 - #1 just fired - Events in phase 1 are EVO, IVO for current "first" group, EVC, IVC for "second" group (multicylinder)    
        //Here we need to focus on valve state change.  less efficient to do a digitalwrite each tooth we check.  so we need to look at current valve state and desired state
         //desired open - this will not be able to be exact, as it's to the nearest hall effect node for degree.  We determine if the degree is near the desired event, and activate the event if so.
         //Much of the math here is irrelevant to single cylinder engines.  However, this will still work with single cylinder.
        
-       //intakeOpen  
-       if (crankSectiondegree <= intDesiredOpen + degreeModifier/2 and crankSectiondegree >= intDesiredOpen - degreeModifier/2)
+       //exhaust valve open BBDC  
+       if (BBDC <= EVO + degreeModifier/2 and BBDC >= EVO - degreeModifier/2)
+       {
+         OpenValve(exh1Pin);
+       }
+       
+       //intake valve open BTDC  
+       if (BTDC <= IVO + degreeModifier/2 and BTDC >= IVO - degreeModifier/2)
        {
          OpenValve(int1Pin);
        }
+
+       //In multicylinder engines, half the cylinders will have intake events in phase 2
+       if(cylinders > 1) {
+         //exhaust valve close ATDC
+         if (ATDC <= EVC + degreeModifier/2 and ATDC >= EVC - degreeModifier/2)
+         {
+           CloseValve(exh2Pin);
+         }
+         
+         //intake valve close ABDC
+         if (ABDC <= IVC + degreeModifier/2 and ABDC >= IVC - degreeModifier/2)
+         {
+           CloseValve(int2Pin);
+         }
+       }
+     }
+     if ((phase % 2) == 1) { //crankshaft degrees in 2nd phase
+       //exhaust valve close ATDC
+       if (ATDC <= EVC + degreeModifier/2 and ATDC >= EVC - degreeModifier/2)
+       {
+         CloseValve(exh1Pin);
+       }
        
-       //intakeClose
-       if (crankSectiondegree <= intDesiredClose + degreeModifier/2 and crankSectiondegree >= intDesiredClose - degreeModifier/2)
+       //intake valve close ABDC
+       if (ABDC <= IVC + degreeModifier/2 and ABDC >= IVC - degreeModifier/2)
        {
          CloseValve(int1Pin);
        }
        
        //In multicylinder engines, half the cylinders will have exhaust events in phase 1
        if(cylinders > 1) {
-         //exhaustOpen  
-         if (crankSectiondegree <= exhDesiredOpen + degreeModifier/2 and crankSectiondegree >= exhDesiredOpen - degreeModifier/2)
+         //exhaust valve open BBDC
+         if (BBDC <= EVO + degreeModifier/2 and BBDC >= EVO - degreeModifier/2)
          {
            OpenValve(exh2Pin);
          }
-
-         //exhaustClose
-         if (crankSectiondegree <= exhDesiredClose + degreeModifier/2 and crankSectiondegree >= exhDesiredClose - degreeModifier/2)
-         {
-           CloseValve(exh2Pin);
-         }
-       }
-     }
-     if ((phase % 2) == 1) { //crankshaft degrees in 2nd phase
-       //exhaustOpen  
-       if (crankSectiondegree <= exhDesiredOpen + degreeModifier/2 and crankSectiondegree >= exhDesiredOpen - degreeModifier/2)
-       {
-         OpenValve(exh1Pin);
-       }
-       
-       //exhaustClose
-       if (crankSectiondegree <= ehxDesiredClose + degreeModifier/2 and crankSectiondegree >= exhDesiredClose - degreeModifier/2)
-       {
-         CloseValve(exh1Pin);
-       }
-       
-       //In multicylinder engines, half the cylinders will have intake events in phase 2
-       if(cylinders > 1) {
-         //intakeOpen  
-         if (crankSectiondegree <= intDesiredOpen + degreeModifier/2 and crankSectiondegree >= intDesiredOpen - degreeModifier/2)
+         
+         //intake valve open BTDC
+         if (BTDC <= IVO + degreeModifier/2 and BTDC >= IVO - degreeModifier/2)
          {
            OpenValve(int2Pin);
          }
-
-         //intakeClose
-         if (crankSectiondegree <= intDesiredClose + degreeModifier/2 and crankSectiondegree >= intDesiredClose - degreeModifier/2)
-         {
-           CloseValve(int2Pin);
-         }
        }
      }
+  }
 }
